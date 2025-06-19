@@ -8,12 +8,17 @@ import argparse
 from shutil import copyfile
 import torch
 import torch.nn as nn
+import torch.nn.functional
 import torch.optim as optim
 import torch.nn.functional as F
+import copy
 
 from trainer import Trainer
 from gnn import GNNq, GNNp
 import loader
+
+import scipy
+from Sinkhorn import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='data')
@@ -204,6 +209,23 @@ def train_q(epoches):
     update_q_data()
     for epoch in range(epoches):
         loss = trainer_q.update_soft(inputs_q, target_q, idx_all)
+        
+        
+def Align():
+    Feat1 = trainer_q.model.predict(inputs).detach()
+    Feat2=Feat1.clone()
+    C=scipy.spatial.distance.cdist(Feat1.cpu(), Feat2.cpu(), metric='cosine')
+    C=torch.tensor(C).float().cuda()
+    print(C.shape)
+    p_s = torch.ones(Feat1.shape[0], 1).cuda() / Feat1.shape[0]
+    p_t = torch.ones(Feat2.shape[0], 1).cuda() / Feat2.shape[0]
+    gt=torch.stack((torch.arange(Feat1.shape[0]).cuda(),torch.arange(Feat1.shape[0]).cuda()),dim=0)
+    torch
+    print(gt.shape)
+    # print(Feat1.shape)
+    sinkhorn(C, p_s, p_t, beta=0.1, inner_iter=100, error_bound=1e-5,gt=gt)
+
+
 
 pre_train(opt['pre_epoch'])
 for k in range(opt['iter']):
@@ -214,7 +236,8 @@ for k in range(opt['iter']):
 #     evaluate()
 
 # for k in range(50):
-evaluate()
+# evaluate()
+Align()
 
 if opt['save'] != '/':
     trainer_q.save(opt['save'] + '/gnnq.pt')
